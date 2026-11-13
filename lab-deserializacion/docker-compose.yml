@@ -1,0 +1,28 @@
+# Laboratorio aislado: ambos servicios comparten una red Docker interna
+# (lab-net) y el target solo expone su puerto en 127.0.0.1 del host,
+# sin salida a redes externas mas alla de lo necesario para el build.
+services:
+
+  target-app:
+    build: ./target-app
+    container_name: target-app
+    ports:
+      - "127.0.0.1:8080:8080"
+    networks:
+      - lab-net
+
+  exploit:
+    build: ./exploit
+    container_name: exploit
+    depends_on:
+      - target-app
+    networks:
+      - lab-net
+    # No se levanta automaticamente con `docker-compose up`.
+    # Se ejecuta a demanda: docker-compose run --rm exploit <target_url> "<comando>"
+    profiles:
+      - exploit
+
+networks:
+  lab-net:
+    driver: bridge
