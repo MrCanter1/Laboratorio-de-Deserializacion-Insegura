@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TechStore — Demo CWE-502</title>
+<style>
+  :root{
+    --bg:#0b0f14; --panel:#121820; --border:#1f2a35; --text:#d7e1ea; --muted:#7c8a98;
+    --red:#ff4d5e; --green:#3ddc84; --amber:#ffb454; --mono:'SF Mono',Consolas,Menlo,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:24px 16px 60px}
+  h1{font-size:20px;margin:0 0 4px}
+  h2{font-size:15px;margin:28px auto 12px;max-width:1100px}
+  .sub{color:var(--muted);font-size:13px;margin:0 0 24px}
+  .wrap{max-width:1100px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;max-width:1100px;margin:0 auto}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px}
+  .card h3{font-size:14px;margin:0;display:flex;align-items:center;justify-content:space-between}
+  .price{color:var(--amber);font-family:var(--mono);font-size:13px}
+  .badge{font-size:10px;letter-spacing:.04em;text-transform:uppercase;padding:2px 7px;border-radius:999px;font-weight:600}
+  .badge.vuln{background:rgba(255,77,94,.15);color:var(--red);border:1px solid rgba(255,77,94,.4)}
+  .badge.safe{background:rgba(61,220,132,.15);color:var(--green);border:1px solid rgba(61,220,132,.4)}
+  .badge.info{background:rgba(255,180,84,.15);color:var(--amber);border:1px solid rgba(255,180,84,.4)}
+  p.desc{font-size:12px;color:var(--muted);margin:0;line-height:1.5}
+  button{background:#1a2430;color:var(--text);border:1px solid var(--border);border-radius:7px;padding:9px 12px;font-size:13px;cursor:pointer;font-family:inherit}
+  button:hover{border-color:#3a4a5c}
+  button:disabled{opacity:.5;cursor:default}
+  button.danger{border-color:rgba(255,77,94,.5)}
+  button.danger:hover{background:rgba(255,77,94,.12)}
+  .result{font-family:var(--mono);font-size:12px;background:#060a0e;border:1px solid var(--border);border-radius:7px;padding:10px;min-height:38px;white-space:pre-wrap;word-break:break-all;color:#9fb3c2}
+  .result.ok{color:var(--green);border-color:rgba(61,220,132,.35)}
+  .result.bad{color:var(--red);border-color:rgba(255,77,94,.35)}
+  #cart-summary{max-width:1100px;margin:0 auto 24px;background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 16px;font-size:13px}
+  #cart-summary .empty{color:var(--muted);font-size:12px}
+  #cart-summary .row{display:flex;justify-content:space-between;padding:3px 0;font-family:var(--mono);font-size:12px}
+  #cart-summary .total{border-top:1px solid var(--border);margin-top:6px;padding-top:6px;font-weight:600;color:var(--amber)}
+  #log{max-width:1100px;margin:28px auto 0;background:#060a0e;border:1px solid var(--border);border-radius:10px;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.6;max-height:300px;overflow-y:auto}
+  #log .l{color:var(--muted)}
+  #log .l .ts{color:#4a5a6a}
+  footer{max-width:1100px;margin:16px auto 0;color:var(--muted);font-size:11px;text-align:center}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>TechStore</h1>
+    <p class="sub">Demo CWE-502 — Deserialización Insegura en Java · TPI Seguridad en el Desarrollo de Software, UTN FRC. Comprá como un usuario real: el checkout dispara el request HTTP que vas a interceptar en Burp.</p>
+  </div>
+
+  <h2>Catálogo</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Notebook <span class="price">$850.000</span></h3>
+      <p class="desc">15" · 16GB RAM · SSD 512GB</p>
+      <button onclick="addToCart('Notebook', 850000)">Agregar al carrito</button>
+    </div>
+    <div class="card">
+      <h3>Mouse <span class="price">$12.000</span></h3>
+      <p class="desc">Óptico inalámbrico</p>
+      <button onclick="addToCart('Mouse', 12000)">Agregar al carrito</button>
+    </div>
+    <div class="card">
+      <h3>Teclado <span class="price">$35.000</span></h3>
+      <p class="desc">Mecánico, switches rojos</p>
+      <button onclick="addToCart('Teclado', 35000)">Agregar al carrito</button>
+    </div>
+  </div>
+
+  <h2>Tu carrito</h2>
+  <div id="cart-summary"><span class="empty">Carrito vacío — agregá productos del catálogo.</span></div>
+
+  <h2>Finalizar compra</h2>
+  <div class="grid">
+    <div class="card">
+      <h3>Checkout <span class="badge vuln">vulnerable</span></h3>
+      <p class="desc">Restaura el carrito que quedó guardado de una compra anterior (patrón real: carrito serializado Base64 persistido del lado del cliente). <code>POST /cart/restore</code> deserializa sin whitelist — este es el tráfico que interceptás en Burp.</p>
+      <button class="danger" onclick="checkout('/cart/restore','result-vuln')">Ver carrito guardado</button>
+      <div class="result" id="result-vuln"></div>
+    </div>
+    <div class="card">
+      <h3>Checkout <span class="badge safe">mitigado</span></h3>
+      <p class="desc">Mismo flujo, pero contra <code>POST /cart/restore-filtered</code> — <code>WhitelistObjectInputStream</code> rechaza cualquier clase fuera de whitelist antes de instanciarla.</p>
+      <button onclick="checkout('/cart/restore-filtered','result-safe')">Ver carrito guardado (seguro)</button>
+      <div class="result" id="result-safe"></div>
+    </div>
+  </div>
+
+  <h2>Verificar RCE</h2>
+  <div class="grid">
+    <div class="card" style="grid-column:1/-1">
+      <p class="desc">
+        El exploit real corre <strong>fuera</strong> de este front (contenedor <code>exploit</code>, o manualmente desde Burp Repeater interceptando el checkout de arriba y reemplazando el body por un payload CommonsCollections6 generado con ysoserial).
+        Comando ejecutado en el servidor: <code>id</code>, salida redirigida a <code>/tmp/id_output.txt</code>.<br>
+        Desde terminal: <code>docker-compose run --rm exploit http://target-app:8080</code> — después apretá el botón para traer la salida sin usar <code>docker exec</code>.
+      </p>
+      <button onclick="viewDebugOutput()">Ver salida del comando ejecutado</button>
+      <div class="result" id="debug-output"></div>
+    </div>
+  </div>
+
+  <div id="log"></div>
+  <footer>Cantero Santiago (81658) — Arias Felipe (82412), 4K3 · Seguridad en el Desarrollo de Software, UTN FRC</footer>
+
+<script>
+let cartState = [];
+
+function logLine(txt){
+  const el = document.getElementById('log');
+  const ts = new Date().toLocaleTimeString();
+  const row = document.createElement('div');
+  row.className = 'l';
+  row.innerHTML = `<span class="ts">[${ts}]</span> ${txt}`;
+  el.appendChild(row);
+  el.scrollTop = el.scrollHeight;
+}
+
+function addToCart(name, price){
+  cartState.push({name, price});
+  renderCart();
+}
+
+function renderCart(){
+  const el = document.getElementById('cart-summary');
+  if (cartState.length === 0){
+    el.innerHTML = '<span class="empty">Carrito vacío — agregá productos del catálogo.</span>';
+    return;
+  }
+  const rows = cartState.map(it => `<div class="row"><span>${it.name}</span><span>$${it.price.toLocaleString('es-AR')}</span></div>`).join('');
+  const total = cartState.reduce((sum, it) => sum + it.price, 0);
+  el.innerHTML = rows + `<div class="row total"><span>Total</span><span>$${total.toLocaleString('es-AR')}</span></div>`;
+}
+
+async function checkout(endpoint, boxId){
+  const box = document.getElementById(boxId);
+  box.className = 'result';
+  box.textContent = '...';
+  logLine(`GET /cart/save (recuperando carrito guardado)`);
+  try{
+    const saveRes = await fetch('/cart/save');
+    const base64Cart = (await saveRes.text()).trim();
+    logLine(`&nbsp;&nbsp;-> HTTP ${saveRes.status}`);
+
+    logLine(`POST ${endpoint}`);
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {'Content-Type':'text/plain'},
+      body: base64Cart
+    });
+    const text = await res.text();
+    box.textContent = text;
+    const cls = res.ok ? '' : 'bad';
+    if (cls) box.classList.add(cls);
+    logLine(`&nbsp;&nbsp;-> HTTP ${res.status} :: ${text.slice(0,160)}`);
+  }catch(err){
+    box.textContent = 'Error de red: ' + err;
+    box.classList.add('bad');
+    logLine(`&nbsp;&nbsp;-> ERROR ${err}`);
+  }
+}
+
+async function viewDebugOutput(){
+  const box = document.getElementById('debug-output');
+  box.className = 'result';
+  box.textContent = '...';
+  logLine(`GET /cart/debug-output`);
+  try{
+    const res = await fetch('/cart/debug-output');
+    const text = await res.text();
+    box.textContent = text;
+    const isRceHit = !/sin salida aun/.test(text);
+    const cls = res.ok ? (isRceHit ? 'ok' : '') : 'bad';
+    if (cls) box.classList.add(cls);
+    logLine(`&nbsp;&nbsp;-> HTTP ${res.status} :: ${text.slice(0,120)}`);
+  }catch(err){
+    box.textContent = 'Error de red: ' + err;
+    box.classList.add('bad');
+    logLine(`&nbsp;&nbsp;-> ERROR ${err}`);
+  }
+}
+</script>
+</body>
+</html>
