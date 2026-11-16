@@ -12,6 +12,9 @@ import java.io.ByteArrayOutputStream;
 import java.io.InvalidClassException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Base64;
 
@@ -36,6 +39,27 @@ public class CartController {
     @GetMapping("/health")
     public String health() {
         return "vulnlab up";
+    }
+
+    /**
+     * HARNESS DE DEMO, no parte del vector de ataque real.
+     * Lee un path fijo (no parametrizable por el cliente -> no introduce
+     * path traversal nuevo) donde el exploit.sh redirige la salida del
+     * comando `id` ejecutado via RCE, para poder mostrarla en el front
+     * sin necesidad de abrir terminal/docker exec durante la demo.
+     */
+    @GetMapping("/debug-output")
+    public String debugOutput() {
+        Path path = Paths.get("/tmp/id_output.txt");
+        try {
+            if (!Files.exists(path)) {
+                return "(sin salida aun -- todavia no se ejecuto el exploit)";
+            }
+            String content = new String(Files.readAllBytes(path));
+            return content.trim().isEmpty() ? "(archivo vacio)" : content;
+        } catch (Exception e) {
+            return "Error leyendo salida: " + e.getMessage();
+        }
     }
 
     /**
